@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					   xmlns:s="library://ns.adobe.com/flex/spark" 
+					   xmlns:mx="library://ns.adobe.com/flex/mx"
+					   creationComplete="application1_creationCompleteHandler(event)"
+					   enabled="true">
+	<fx:Script>
+		<![CDATA[
+			import com.code11.google.calendar.services.GoogleCalendarService;
+			import com.code11.google.calendar.util.Recurrence;
+			import com.code11.google.calendar.valueObjects.AllCalendarResponse;
+			import com.code11.google.calendar.valueObjects.EventListResponse;
+			import com.code11.google.calendar.valueObjects.EventVO;
+			import com.code11.google.login.AuthenticatedUser;
+			import com.code11.google.login.ClientLoginService;
+			
+			import mx.events.FlexEvent;
+			import mx.rpc.AsyncToken;
+			import mx.rpc.Responder;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			private var _calendarService:GoogleCalendarService;
+			
+			protected function application1_creationCompleteHandler(event:FlexEvent):void
+			{
+				
+				_calendarService = new GoogleCalendarService(); 
+				//autheticate();
+			}
+			
+			private var calendarAuthenticator:ClientLoginService;
+			private function autheticate():void {
+				calendarAuthenticator = new ClientLoginService();
+				var token:AsyncToken = calendarAuthenticator.authenticateUser("rocodesign","l3SxML3cBewS","cl");
+				token.addResponder(new mx.rpc.Responder(handleAuthenticationResult, handleAuthenticationFault));
+				
+			}
+			
+			
+			private var _applicationId:String;
+			private var _userName:String;
+			private var _userPassword:String;
+			private var _authenticationToken:String = null;
+			private function handleAuthenticationResult(event:ResultEvent):void
+			{
+				
+				if(event.result != null && event.result is String) {
+					_authenticationToken = event.result.split("Auth=")[1];
+				} else {
+					return;
+				}
+				
+				userObj = new AuthenticatedUser();
+				userObj.email = _userName;
+				userObj.password = _userPassword;
+				userObj.token = _authenticationToken;
+				userObj.loggedInTime = new Date();
+				
+				//authentication successful
+				trace("AUTHENTICATED");
+				userObj.authenticated = _authenticationToken != null
+				_calendarService.channelSet.setCredentials(userObj.token,null);
+				enabled = true;
+			} 
+			
+			private function handleAuthenticationFault(event:FaultEvent):void
+			{
+				trace("Login Failed");
+				
+				userObj = null;
+				
+			}
+			
+			
+			public var userObj:AuthenticatedUser;
+			
+			
+			public function result(event:ResultEvent):void {
+				trace("RESULT");
+			}
+			
+			public function fault(event:FaultEvent):void {
+				trace("FAULT");
+			}
+			
+			/*private function addCalendar():void {
+				if(cal != null) {
+					//_calendarService.addCalendar(cal,authenticatedUser); 
+				}
+			}*/
+			
+			protected function handleAddCalendar(event:Event):void
+			{
+				// TODO Auto-generated method stub
+				
+			}
+			
+			
+			protected function handleCalendars(event:Event):void
+			{
+				// TODO Auto-generated method stub
+				trace("CALENDARS LOADED");
+			}
+			
+			protected function button1_clickHandler(event:MouseEvent):void {
+				var token:AsyncToken = _calendarService.getAllCalendars();
+				token.addResponder(new mx.rpc.Responder(gotCalendars,fault));
+				
+			}
+			
+			protected function button2_clickHandler(event:MouseEvent):void {
+				var token:AsyncToken = _calendarService.getOwnedCalendars();
+				token.addResponder(new mx.rpc.Responder(gotCalendars,fault));
+			}
+			
+			protected function button3_clickHandler(event:MouseEvent):void {
+				var token:AsyncToken = _calendarService.createCalendar("ANEWCAL","TEST","Europe/Bucharest");
+				token.addResponder(new mx.rpc.Responder(addedCalendar,fault));
+			}
+			
+			private function gotCalendars(event:ResultEvent):void
+			{
+				calList.dataProvider = (event.result as AllCalendarResponse).data.items;
+			}
+			
+			private function addedCalendar(event:ResultEvent):void {
+				button2_clickHandler(null);
+			}
+			
+			protected function deleteHandler(event:MouseEvent):void
+			{
+				var token:AsyncToken = _calendarService.deleteCalendar(calList.selectedItem);
+				token.addResponder(new mx.rpc.Responder(addedCalendar,fault));
+			}
+			
+			protected function updateHandler(event:MouseEvent):void
+			{
+				calList.selectedItem.title = "UPDATED CALENDAR";
+				var token:AsyncToken = _calendarService.updateCalendar(calList.selectedItem);
+				token.addResponder(new mx.rpc.Responder(addedCalendar,fault));
+			}
+			
+			protected function eventsHandler(event:MouseEvent):void
+			{
+				var token:AsyncToken = _calendarService.getEventsBetween(calList.selectedItem,new Date(2000,01,01),new Date(2012,01,01));
+				token.addResponder(new mx.rpc.Responder(gotEvents,fault));
+			}
+			
+			protected function addEventHandler(event:MouseEvent):void {
+				var token:AsyncToken = _calendarService.addEvent(calList.selectedItem,new Date(),new Date(),"Recurring event",
+												"repeat every month","opaque","confirmed","Everywhere",Recurrence.DEFAULT_MONTHLY);
+				token.addResponder(new mx.rpc.Responder(gotEvent,fault));
+			}
+			
+			protected function updateEventHandler(event:MouseEvent):void {
+				(eventList.selectedItem as EventVO).title = "Updated Event " + new Date().getTime();
+				var token:AsyncToken = _calendarService.updateEvent(eventList.selectedItem);
+				token.addResponder(new mx.rpc.Responder(gotEvent,fault));
+			}
+			
+			protected function deleteEventHandler(event:MouseEvent):void {
+				var token:AsyncToken = _calendarService.deleteEvent(eventList.selectedItem);
+				token.addResponder(new mx.rpc.Responder(gotEvent,fault));
+			}
+			
+			private function gotEvents(event:ResultEvent):void {
+				eventList.dataProvider = (event.result as EventListResponse).data.items;
+			}
+			
+			private function gotEvent(event:ResultEvent):void {
+				//eventList.dataProvider = (event.result as EventListResponse).data.items;
+				eventsHandler(null);
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<s:layout>
+		<s:VerticalLayout />
+	</s:layout>
+	<s:Group width="100%">
+		<s:layout>
+			<s:TileLayout requestedRowCount="-1" requestedColumnCount="-1"/>
+		</s:layout>
+		<s:Button label="GETALLCALENDARS" click="button1_clickHandler(event)"/>
+		<s:Button label="GETOWNCALENDARS" click="button2_clickHandler(event)"/>
+		<s:Button label="ADD CALENDAR" click="button3_clickHandler(event)"/>
+		<s:Button label="UPDATE CALENDAR" click="updateHandler(event)"/>
+		<s:Button label="DELETE CALENDAR" click="deleteHandler(event)" enabled="{calList.selectedIndex > 0}"/>
+	</s:Group>
+	<s:List labelField="title" top="30" id="calList"/>
+	<s:HGroup enabled="{calList.selectedIndex >= 0}">
+		<s:Button label="ADDEVENT" click="addEventHandler(event)"/>
+		<s:Button label="GETEVENTS" click="eventsHandler(event)"/>
+		<s:Button label="UPDATEEVENT" click="updateEventHandler(event)"/>
+		<s:Button label="DELETEEVENT" click="deleteEventHandler(event)"/>
+		<!--<s:Button label="GETOWNCALENDARS" click="button2_clickHandler(event)"/>-->
+	</s:HGroup>
+	<s:List labelField="title" top="30" id="eventList"/>
+</s:WindowedApplication>
